@@ -1,0 +1,78 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: "Customer dimension table. Contains geographical information and the unique customer key."
+    columns:
+      - name: customer_id
+        description: "Primary key. Unique identifier of the customer per individual order."
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_products
+    description: "Product dimension table, enriched with the English translation of the category name."
+    columns:
+      - name: product_id
+        description: "Primary key of the product dimension."
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_sellers
+    description: "Seller dimension table with associated geographical coordinates."
+    columns:
+      - name: seller_id
+        description: "Primary key of the seller dimension."
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_order_items
+    description: "Fact table for individual order lines (grain: one row per ordered item)."
+    columns:
+      - name: order_id
+        description: "Order key. Not unique here because an order can contain multiple items."
+        tests:
+          - not_null
+      - name: order_item_id
+        description: "Identifier for the line item within the order."
+        tests:
+          - not_null
+      - name: product_id
+        description: "Foreign key pointing to dim_products."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: seller_id
+        description: "Foreign key pointing to dim_sellers."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_sellers')
+                field: seller_id
+
+  - name: fct_orders
+    description: "Fact table for orders (grain: one row per order). Contains aggregated metrics and delivery KPIs."
+    columns:
+      - name: order_id
+        description: "Primary key. Must be unique due to pre-join aggregation."
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "Foreign key pointing to dim_customers."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: order_value
+        description: "Total order value (items price + freight value)."
+        tests:
+          - not_null
