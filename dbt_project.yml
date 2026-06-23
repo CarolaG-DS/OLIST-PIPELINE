@@ -17,7 +17,7 @@ seed-paths: ["seeds"]
 macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 
-target-path: "target"  # directory which will store compiled SQL files
+target-path: "target"   # directory which will store compiled SQL files
 clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
@@ -26,15 +26,15 @@ clean-targets:         # directories to be removed by `dbt clean`
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
 models:
   olist_pipeline:
-    # Livello 2: STAGING 
-    # Materializzato come VIEW: una query salvata sopra RAW, costo di storage ~0.
+    # Layer 1: STAGING
+    # Materialized as VIEW: cheap, recomputed on read, near-zero storage cost.
     staging:
       +materialized: view
       +schema: staging
 
-    # Livello 3: CORE (Aggiunto per lo Star Schema)
-    # Calcoli pesanti, join e logica di business. Lo materializziamo come TABLE 
-    # così Snowflake memorizza fisicamente i dati e le query del BI saranno velocissime.
+    # Layer 2: CORE (Star Schema Model)
+    # Heavy computations, joins, and business logic. Materialized as TABLE
+    # so data is computed once and stored, making downstream BI queries extremely fast.
     core:
       +materialized: table
       +schema: core

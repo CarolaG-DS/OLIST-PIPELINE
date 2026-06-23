@@ -40,7 +40,7 @@ final AS (
         o.order_delivered_carrier_date,
         o.order_delivered_customer_date,
         o.order_estimated_delivery_date,
-        COALESCE(i.total_items_price, 0.00) AS items_value,
+        COALESCE(i.total_items_price, 0.00) AS items_value, --if there is a null value replace it with 0.00
         COALESCE(i.total_freight_value, 0.00) AS freight_value,
         COALESCE(i.total_order_value, 0.00) AS order_value,
         COALESCE(i.total_items_quantity, 0) AS total_items_quantity,
@@ -48,7 +48,7 @@ final AS (
         (o.order_delivered_customer_date::DATE - o.order_purchase_timestamp::DATE) AS delivery_days,
         
         CASE 
-            WHEN o.order_delivered_customer_date > o.order_estimated_delivery_date THEN 1
+            WHEN o.order_delivered_customer_date > o.order_estimated_delivery_date THEN 1 --late delivery
             ELSE 0
         end as is_late_delivery
 
