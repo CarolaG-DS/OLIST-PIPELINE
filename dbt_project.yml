@@ -29,8 +29,8 @@ clean-targets:         # directories to be removed by `dbt clean`
 # RAW, costs ~0 storage, and stays cheap/disposable since it's just casting,
 # renaming, and basic cleaning. CORE (Part 2) will use TABLE materialization
 # instead, because it's queried heavily by the BI layer and worth persisting.
-
 models:
   olist_pipeline:
     staging:
       +materialized: view
+      +schema: staging
