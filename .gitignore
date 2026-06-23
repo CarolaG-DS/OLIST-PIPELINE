@@ -1,0 +1,25 @@
+# secrets — never versioned
+.kaggle/
+kaggle.json
+access_token
+token.json
+*.env
+.env
+
+# data — never versioned
+data/raw_csv/
+*.csv
+*.zip
+
+# build artifacts
+target/
+dbt_packages/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
