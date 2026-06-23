@@ -1,0 +1,49 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw Olist e-commerce data, loaded 1:1 from source CSVs into Snowflake.
+      All columns are VARCHAR; no transformations applied at this layer.
+    database: DATA_ACADEMY
+    schema: RAW
+    tables:
+      - name: orders
+        description: >
+          One row per order. Date columns needs to be casted into date. Contains null values in date columns
+          (order_approved_at, order_delivered_carrier_date,
+          order_delivered_customer_date) and in product_category_name.
+
+      - name: customers
+        description: >
+          customer_id is unique per order; customer_unique_id is the real
+          customer. A customer_unique_id can map to multiple customer_ids.
+
+      - name: order_items
+        description: One row per line item within an order. Shipping_limit_date needs to be casted into date, price and freight_value into decimal.
+
+      - name: order_payments
+        description: One row per payment transaction for an order. Payment_value needs to be casted into decimal, payment_installments into integer. Payment_type = 'not_defined'
+
+      - name: order_reviews
+        description: >
+          One row per review. Contains null/empty values in
+          review_comment_title and review_comment_message. Review score needs to ba casted into integer, date columns into date
+
+      - name: products
+        description: >
+          Source column names contain typos: product_name_lenght and
+          product_description_lenght (missing the 't' in "length"). Also
+          contains null values in product_category_name and in the
+          dimension columns. Cast numeric columns into integer
+
+      - name: sellers
+        description: One row per seller.
+
+      - name: geolocation
+        description: >
+          Contains duplicate rows per zip code prefix, and some coordinate
+          values falling outside Brazil.
+
+      - name: product_category_name_translation
+        description: Maps Portuguese product category names to their English translation.
