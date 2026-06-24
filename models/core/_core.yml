@@ -35,6 +35,10 @@ models:
         description: "Order key. Not unique here because an order can contain multiple items."
         tests:
           - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
       - name: order_item_id
         description: "Identifier for the line item within the order."
         tests:
