@@ -5,8 +5,8 @@ Medallion architecture in Snowflake (**RAW → STAGING → CORE → BI**), built
 Python ingestion and dbt transformations.
 
 ```
-RAW  →  STAGING  →  CORE  →  [ BI ]
-raw      clean       model    served (coming up)
+RAW  →  STAGING  →  CORE  →  BI
+raw      clean       model    served
 ```
 
 ---
@@ -18,7 +18,8 @@ raw      clean       model    served (coming up)
 | **Git / GitHub** | Version control |
 | **Python** | Ingestion of CSVs into Snowflake's RAW layer |
 | **Snowflake** | Warehouse — one schema per medallion layer |
-| **dbt Cloud** | In-warehouse transformation (STAGING + CORE layers) |
+| **dbt Cloud** | In-warehouse transformation (STAGING + CORE + BI layers) |
+| **Tableau Desktop** | Dashboard, connected to the BI schema only |
 
 ---
 
@@ -53,10 +54,15 @@ raw      clean       model    served (coming up)
     │       ├── dim_sellers.sql
     │       ├── fct_orders.sql
     │       └── fct_order_items.sql
+    │   └── bi/
+    │       ├── bi_orders.sql
+    │       ├── bi_delivery_satisfaction.sql
+    │       └── bi_reviews_by_state.sql
     ├── macros/
     │   └── generate_schema_name.sql
     ├── analyses/
-    │   └── staging_validation_checks.sql
+    │   ├── staging_validation_checks.sql
+    │   └── bi_validation_checks.sql
     └── tests/
         └── assert_fct_order_items_unique_grain.sql
 ```
@@ -191,8 +197,87 @@ CORE) were spot-checked for:
 
 ---
 
-## What's next
+## Part 3 — CORE → BI (served views & dashboard)
 
-The **BI layer**: served, dashboard-friendly views that read from CORE
-(never directly from RAW or STAGING), plus the business KPIs — revenue,
-average ticket, % late deliveries, average review score, repurchase rate.
+The BI layer is the last stop before the dashboard: friendly, pre-shaped
+views that Tableau reads from — **never CORE or RAW directly**. BI models
+read CORE via `{{ ref(...) }}`, and are materialized as **views** (cheap,
+no heavy aggregation happening here, just final shaping) — set project-wide
+for the `bi/` folder, same pattern as staging.
+
+### `bi_orders` — the base view (3 KPIs)
+
+One row per order, enriched with customer location and a truncated purchase
+month, ready for Tableau to aggregate directly:
+
+- **Revenue & avg ticket** — `SUM`/`AVG(order_value)`, filtered to
+  `order_status = 'delivered'` in the dashboard (real revenue excludes
+  cancelled orders).
+- **% late deliveries** — rate of `is_late_delivery`, computed only over
+  rows where it's not `NULL` (an order that was never delivered has no
+  "on time / late" answer — it's excluded, not counted as either).
+- **Avg review score** — straight average of `avg_review_score`.
+
+All three KPIs come from this single view — no need for three separate
+queries, since every column they need already lives together at the same
+grain (one row per order).
+
+### `bi_delivery_satisfaction` — custom KPI (business angle: satisfaction & reviews)
+
+Pre-aggregated by delivery outcome (`late` / `on_time` / `not_delivered`),
+with `avg_review_score` and `total_orders` per bucket. Built to test a
+direct hypothesis: does a late or missing delivery actually hurt
+satisfaction? The data says yes, clearly —
+
+| delivery_status | total_orders | avg_review_score |
+|---|---|---|
+| on_time | 88,649 | 4.29 |
+| late | 7,827 | 2.57 |
+| not_delivered | 2,965 | 1.75 |
+
+`total_orders` is included specifically so a thin slice (e.g. very few
+`not_delivered` orders) doesn't get over-trusted — it's there as supporting
+context, not the headline metric.
+
+### `bi_reviews_by_state` — geographic KPI (heat map)
+
+Average review score aggregated by `customer_state`, with `total_orders`
+per state for the same reason as above. Feeds the Tableau heat map
+directly: `customer_state` on the map shelf, `avg_review_score` on color.
+Covers all 27 Brazilian states (26 states + the Distrito Federal), with no
+orphaned "unknown state" bucket.
+
+### Validation
+
+`analyses/bi_validation_checks.sql` documents the checks run before
+connecting Tableau — confirming `bi_orders` matches `fct_orders` row for
+row (no fan-out from the enrichment join), that the three delivery-status
+buckets sum back to the full order count, and that the 27-state total
+matches as well. All numbers were validated in SQL first, then visualized.
+
+### Dashboard
+
+Built in Tableau Desktop, connected directly to the `BI` schema (not
+`CORE`). Five KPIs across three building blocks: the three base KPIs as
+metric cards, the delivery-satisfaction comparison as a bar chart, and the
+state-level heat map. Formatting choices: currency in `R$` (Brazilian
+Real, matching the dataset's market) with no decimals on the headline
+revenue figure, one consistent card style (border + light background +
+rounded corners) for all four top-line metrics, and a 3-color palette on
+the delivery-status chart (green / amber / red) mapped to outcome — not a
+default categorical palette — so the chart reads at a glance.
+
+> **Note on version control.** The Tableau workbook (`.twb`/`.twbx`) is
+> **not** committed to this repo. Git here tracks the code that produces
+> the data Tableau reads (models, tests, config) — not the BI tool itself,
+> which connects to Snowflake independently and isn't part of the dbt
+> project. The dashboard is kept/shared separately (exported screenshot,
+> packaged workbook, or Tableau Public link, depending on what's needed).
+
+---
+
+## Project status
+
+All three parts are complete: a governed RAW → STAGING → CORE → BI
+pipeline, tested and documented, with a working Tableau dashboard reading
+exclusively from the served BI layer.
